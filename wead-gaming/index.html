@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeAD - Quantum Web3 Retro Gaming Platform</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #000;
+            color: #fff;
+            overflow-x: hidden;
+            overflow-y: auto;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        .quantum-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(75, 0, 130, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(25, 25, 112, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(72, 61, 139, 0.2) 0%, transparent 50%),
+                linear-gradient(135deg, #000000 0%, #1a0033 25%, #000066 50%, #000000 75%, #000000 100%);
+            animation: quantumShift 10s ease-in-out infinite;
+            z-index: -3;
+        }
+        
+        @keyframes quantumShift {
+            0% { 
+                filter: brightness(1);
+                background: 
+                    radial-gradient(circle at 20% 30%, rgba(75, 0, 130, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(25, 25, 112, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 40% 80%, rgba(72, 61, 139, 0.2) 0%, transparent 50%),
+                    linear-gradient(135deg, #000000 0%, #1a0033 25%, #000066 50%, #000000 75%, #000000 100%);
+            }
+            20% { 
+                filter: brightness(1.1);
+                background: 
+                    radial-gradient(circle at 30% 40%, rgba(75, 0, 130, 0.4) 0%, transparent 60%),
+                    radial-gradient(circle at 70% 60%, rgba(25, 25, 112, 0.4) 0%, transparent 60%),
+                    radial-gradient(circle at 50% 70%, rgba(72, 61, 139, 0.3) 0%, transparent 60%),
+                    linear-gradient(135deg, #000000 0%, #1a0033 30%, #000066 60%, #000000 100%);
+            }
+            40% { 
+                filter: brightness(0.9);
+                background: 
+                    radial-gradient(circle at 40% 20%, rgba(75, 0, 130, 0.2) 0%, transparent 40%),
+                    radial-gradient(circle at 60% 80%, rgba(25, 25, 112, 0.2) 0%, transparent 40%),
+                    radial-gradient(circle at 30% 60%, rgba(72, 61, 139, 0.1) 0%, transparent 40%),
+                    linear-gradient(135deg, #000000 0%, #000066 40%, #000000 100%);
+            }
+            60% { 
+                filter: brightness(1.2);
+                background: 
+                    radial-gradient(circle at 60% 70%, rgba(75, 0, 130, 0.5) 0%, transparent 70%),
+                    radial-gradient(circle at 40% 30%, rgba(25, 25, 112, 0.5) 0%, transparent 70%),
+                    radial-gradient(circle at 70% 50%, rgba(72, 61, 139, 0.4) 0%, transparent 70%),
+                    linear-gradient(135deg, #000000 0%, #1a0033 20%, #000066 50%, #000000 100%);
+            }
+            80% { 
+                filter: brightness(0.8);
+                background: 
+                    radial-gradient(circle at 10% 60%, rgba(75, 0, 130, 0.1) 0%, transparent 30%),
+                    radial-gradient(circle at 90% 40%, rgba(25, 25, 112, 0.1) 0%, transparent 30%),
+                    radial-gradient(circle at 60% 90%, rgba(72, 61, 139, 0.05) 0%, transparent 30%),
+                    linear-gradient(135deg, #000000 0%, #000033 35%, #000000 100%);
+            }
+            100% { 
+                filter: brightness(1);
+                background: 
+                    radial-gradient(circle at 20% 30%, rgba(75, 0, 130, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(25, 25, 112, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 40% 80%, rgba(72, 61, 139, 0.2) 0%, transparent 50%),
+                    linear-gradient(135deg, #000000 0%, #1a0033 25%, #000066 50%, #000000 75%, #000000 100%);
+            }
+        }
+        
+        .quantum-particles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -2;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #00ffff;
+            border-radius: 50%;
+            animation: float 6s infinite linear;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+        
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridPulse 4s ease-in-out infinite;
+            z-index: -1;
+        }
+        
+        @keyframes gridPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.1; }
+        }
+        
+        .container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 60px 60px 60px;
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            flex-shrink: 0;
+        }
+        
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: clamp(60px, 8vw, 120px);
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00, #00ff00, #00ffff);
+            background-size: 400% 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: quantumGlow 3s ease infinite;
+            text-shadow: 0 0 60px rgba(0, 255, 255, 0.8);
+            letter-spacing: 8px;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 30px #00ffff);
+        }
+        
+        @keyframes quantumGlow {
+            0%, 100% { 
+                background-position: 0% 50%;
+                filter: drop-shadow(0 0 30px #00ffff) brightness(1);
+            }
+            25% { 
+                background-position: 100% 50%;
+                filter: drop-shadow(0 0 40px #ff00ff) brightness(1.2);
+            }
+            50% { 
+                background-position: 200% 50%;
+                filter: drop-shadow(0 0 35px #ffff00) brightness(0.9);
+            }
+            75% { 
+                background-position: 300% 50%;
+                filter: drop-shadow(0 0 45px #00ff00) brightness(1.1);
+            }
+        }
+        
+        .subtitle {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(20px, 3vw, 36px);
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+        }
+        
+        .tagline {
+            font-size: clamp(16px, 2vw, 24px);
+            color: #ffffff;
+            font-weight: 300;
+            letter-spacing: 2px;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            flex: 1;
+            align-items: start;
+            margin-bottom: 40px;
+        }
+        
+        .left-section {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .quantum-card {
+            background: linear-gradient(135deg, 
+                rgba(0, 255, 255, 0.1) 0%, 
+                rgba(255, 0, 255, 0.05) 50%, 
+                rgba(0, 255, 0, 0.1) 100%);
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            border-radius: 20px;
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .quantum-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00, #00ff00);
+            border-radius: 22px;
+            z-index: -1;
+            animation: borderRotate 4s linear infinite;
+        }
+        
+        @keyframes borderRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(20px, 2.5vw, 28px);
+            font-weight: 700;
+            color: #00ffff;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .card-text {
+            font-size: clamp(14px, 1.5vw, 18px);
+            line-height: 1.6;
+            color: #cccccc;
+            font-weight: 400;
+        }
+        
+        .right-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+            justify-content: flex-start;
+        }
+        
+        .quantum-display {
+            width: 100%;
+            max-width: 400px;
+            height: 250px;
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2));
+            border: 3px solid #00ffff;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .quantum-display::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(from 0deg, transparent, #00ffff, transparent);
+            animation: rotate 3s linear infinite;
+        }
+        
+        .display-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(0, 255, 255, 0.5);
+        }
+        
+        .display-icon {
+            font-size: clamp(50px, 6vw, 80px);
+            margin-bottom: 15px;
+            display: block;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .display-text {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(14px, 1.8vw, 20px);
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .platform-badges {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            background: linear-gradient(45deg, #ff00ff, #00ffff);
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: clamp(12px, 1.5vw, 16px);
+            color: #000;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            white-space: nowrap;
+        }
+        
+        .badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+        }
+        
+        .badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .badge:hover::before {
+            left: 100%;
+        }
+        
+        .badge.coming-soon {
+            background: linear-gradient(45deg, #666, #999);
+            color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .badge.coming-soon:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 30px;
+            border-top: 1px solid rgba(0, 255, 255, 0.3);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .quantum-stats {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(20px, 3vw, 32px);
+            font-weight: 700;
+            color: #00ffff;
+            display: block;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+        }
+        
+        .stat-label {
+            font-size: clamp(10px, 1.2vw, 14px);
+            color: #cccccc;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+        
+        .social-quantum {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .social-btn {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(45deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2));
+            border: 2px solid #00ffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #00ffff;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .social-btn:hover {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            color: #000;
+            transform: scale(1.1) rotate(360deg);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.8);
+        }
+        
+        .social-btn.telegram {
+            background: linear-gradient(45deg, rgba(0, 136, 204, 0.3), rgba(0, 255, 255, 0.2));
+            border-color: #0088cc;
+        }
+        
+        .social-btn.telegram:hover {
+            background: linear-gradient(45deg, #0088cc, #00ffff);
+            box-shadow: 0 0 25px rgba(0, 136, 204, 0.8);
+        }
+        
+        .social-btn.discord {
+            background: linear-gradient(45deg, rgba(114, 137, 218, 0.3), rgba(255, 0, 255, 0.2));
+            border-color: #7289da;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .social-btn.discord:hover {
+            background: linear-gradient(45deg, rgba(114, 137, 218, 0.3), rgba(255, 0, 255, 0.2));
+            color: #7289da;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .social-btn.twitter {
+            background: linear-gradient(45deg, rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.1));
+            border-color: #ffffff;
+        }
+        
+        .social-btn.twitter:hover {
+            background: linear-gradient(45deg, #000000, #ffffff);
+            color: #ffffff;
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.8);
+        }
+        
+        .social-btn.ecosystem {
+            background: linear-gradient(45deg, rgba(0, 255, 0, 0.3), rgba(0, 255, 255, 0.2));
+            border-color: #00ff00;
+        }
+        
+        .social-btn.ecosystem:hover {
+            background: linear-gradient(45deg, #00ff00, #00ffff);
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.8);
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .quantum-text {
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: textShimmer 3s ease-in-out infinite;
+        }
+        
+        @keyframes textShimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            
+            .container {
+                padding: 30px 40px 40px 40px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 30px 30px 30px;
+            }
+            
+            .quantum-stats {
+                gap: 20px;
+            }
+            
+            .footer {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .platform-badges {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quantum-bg"></div>
+    <div class="quantum-particles"></div>
+    <div class="grid-overlay"></div>
+    
+    <div class="container">
+        <header class="header">
+            <h1 class="logo">WeAD</h1>
+            <p class="subtitle">Quantum Web3 Retro Gaming</p>
+            <p class="tagline">Multi-Platform • Cross-Chain • Community Driven</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="left-section">
+                <div class="quantum-card">
+                    <h3 class="card-title">🎮 Retro Revolution</h3>
+                    <p class="card-text">Experience classic gaming reimagined for the quantum age. Play legendary titles with modern Web3 integration across Discord and Telegram platforms.</p>
+                </div>
+                
+                <div class="quantum-card">
+                    <h3 class="card-title">🏆 Quantum Tournaments</h3>
+                    <p class="card-text">Compete in cross-platform tournaments with real-time leaderboards. Earn crypto rewards and NFT achievements through skill-based gameplay.</p>
+                </div>
+                
+                <div class="quantum-card">
+                    <h3 class="card-title">⚡ Instant Access</h3>
+                    <p class="card-text">No downloads required. Play directly through Discord bots and Telegram mini-apps with seamless wallet integration and social features.</p>
+                </div>
+            </div>
+            
+            <div class="right-section">
+                <div class="quantum-display">
+                    <div class="display-content">
+                        <span class="display-icon quantum-text">🌌</span>
+                        <p class="display-text">Quantum Gaming<br/>Activated</p>
+                    </div>
+                </div>
+                
+                <div class="platform-badges">
+                    <a href="https://t.me/Retrogamestournamentbot" class="badge" target="_blank">📱 Play on Telegram</a>
+                    <div class="badge coming-soon">💬 Discord Coming Soon</div>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="footer">
+            <div class="quantum-stats">
+                <div class="stat">
+                    <span class="stat-number">204+</span>
+                    <span class="stat-label">Partner Projects</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">100M+</span>
+                    <span class="stat-label">Potential Players</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">10K</span>
+                    <span class="stat-label">Retro Games</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">24/7</span>
+                    <span class="stat-label">Tournaments</span>
+                </div>
+            </div>
+            
+            <div class="social-quantum">
+                <a href="https:https://t.me/Epicspacedodgegamebot" class="social-btn telegram" target="_blank" title="Space Dodge Mini Game">🎮</a>
+                <a href="https://t.me/WeAdvertizers" class="social-btn telegram" target="_blank" title="WeAD Community">📱</a>
+                <a href="https://x.com/WeADvertizers" class="social-btn twitter" target="_blank" title="Follow us on X">𝕏</a>
+                <a href="https://www.wead.info" class="social-btn ecosystem" target="_blank" title="WeAD Ecosystem">🌐</a>
+            </div>
+        </footer>
+    </div>
+    
+    <script>
+        // Create quantum particles
+        function createQuantumParticles() {
+            const container = document.querySelector('.quantum-particles');
+            const colors = ['#00ffff', '#ff00ff', '#ffff00', '#00ff00'];
+            
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 4 + 4) + 's';
+                
+                // Add glow effect
+                particle.style.boxShadow = `0 0 10px ${particle.style.background}`;
+                
+                container.appendChild(particle);
+            }
+        }
+        
+        // Initialize quantum effects
+        document.addEventListener('DOMContentLoaded', function() {
+            createQuantumParticles();
+            
+            // Add hover effects to quantum cards
+            document.querySelectorAll('.quantum-card').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px) scale(1.02)';
+                    this.style.boxShadow = '0 20px 40px rgba(0, 255, 255, 0.3)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                    this.style.boxShadow = 'none';
+                });
+            });
+            
+            // Quantum display interaction
+            const quantumDisplay = document.querySelector('.quantum-display');
+            quantumDisplay.addEventListener('click', function() {
+                const icons = ['🌌', '⚡', '🎮', '🚀', '💎', '🌟'];
+                const randomIcon = icons[Math.floor(Math.random() * icons.length)];
+                document.querySelector('.display-icon').textContent = randomIcon;
+            });
+            
+            // Auto-rotate display icon
+            setInterval(() => {
+                const icons = ['🌌', '⚡', '🎮', '🚀', '💎', '🌟'];
+                const currentIcon = document.querySelector('.display-icon');
+                const randomIcon = icons[Math.floor(Math.random() * icons.length)];
+                currentIcon.textContent = randomIcon;
+            }, 5000);
+        });
+        
+        // Add quantum mouse trail effect
+        document.addEventListener('mousemove', function(e) {
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position: fixed;
+                width: 4px;
+                height: 4px;
+                background: #00ffff;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 9999;
+                left: ${e.clientX - 2}px;
+                top: ${e.clientY - 2}px;
+                box-shadow: 0 0 10px #00ffff;
+                animation: trailFade 1s ease-out forwards;
+            `;
+            
+            document.body.appendChild(trail);
+            
+            setTimeout(() => {
+                trail.remove();
+            }, 1000);
+        });
+        
+        // Add CSS for trail animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes trailFade {
+                0% { transform: scale(1); opacity: 1; }
+                100% { transform: scale(0); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
