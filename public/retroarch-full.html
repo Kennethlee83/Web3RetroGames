@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetroArch Full Web Player</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+        }
+        #retroarch-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        #retroarch-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="retroarch-container">
+        <div id="loading">Loading RetroArch...</div>
+        <canvas id="retroarch-canvas"></canvas>
+    </div>
+
+    <script>
+        // Set up RetroArch Module configuration
+        window.Module = {
+            locateFile: (path) => {
+                if (path.endsWith('.wasm')) {
+                    return '/netplay/snes9x_libretro.wasm';
+                }
+                return path;
+            },
+            onRuntimeInitialized: () => {
+                console.log('✅ RetroArch runtime initialized');
+                document.getElementById('loading').style.display = 'none';
+                initializeRetroArch();
+            },
+            canvas: document.getElementById('retroarch-canvas'),
+            noInitialRun: true,
+            print: (text) => console.log('📺 RetroArch:', text),
+            printErr: (text) => console.error('❌ RetroArch:', text),
+            setCanvasSize: (width, height) => {
+                console.log(`📐 Canvas size: ${width}x${height}`);
+                const canvas = document.getElementById('retroarch-canvas');
+                canvas.width = width;
+                canvas.height = height;
+            }
+        };
+
+        async function initializeRetroArch() {
+            try {
+                console.log('🎮 Initializing RetroArch...');
+                
+                // Load the ROM
+                const response = await fetch('/roms/Street Fighter II Turbo (U).smc');
+                if (!response.ok) {
+                    throw new Error(`Failed to load ROM: ${response.status}`);
+                }
+                
+                const romData = await response.arrayBuffer();
+                console.log('📁 ROM loaded:', romData.byteLength, 'bytes');
+                
+                // Initialize RetroArch core
+                if (Module._retro_init) {
+                    Module._retro_init();
+                    console.log('✅ RetroArch core initialized');
+                }
+                
+                // Allocate memory for ROM
+                const romPtr = Module._malloc(romData.byteLength);
+                Module.HEAPU8.set(new Uint8Array(romData), romPtr);
+                
+                // Create game info structure
+                const gameInfoPtr = Module._malloc(32);
+                Module.setValue(gameInfoPtr, romPtr, 'i32');      // data
+                Module.setValue(gameInfoPtr + 4, romData.byteLength, 'i32'); // size
+                Module.setValue(gameInfoPtr + 8, 0, 'i32');       // path (null)
+                Module.setValue(gameInfoPtr + 12, 0, 'i32');      // meta (null)
+                
+                // Load game
+                const success = Module._retro_load_game(gameInfoPtr);
+                
+                // Clean up
+                Module._free(romPtr);
+                Module._free(gameInfoPtr);
+                
+                if (success) {
+                    console.log('✅ ROM loaded into RetroArch');
+                    startRetroArch();
+                } else {
+                    throw new Error('Failed to load ROM into RetroArch');
+                }
+                
+            } catch (error) {
+                console.error('❌ Failed to initialize RetroArch:', error);
+                document.getElementById('loading').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        function startRetroArch() {
+            console.log('🚀 Starting RetroArch emulation...');
+            
+            // Start the emulation loop
+            function emulationLoop() {
+                if (Module._retro_run) {
+                    Module._retro_run();
+                }
+                requestAnimationFrame(emulationLoop);
+            }
+            
+            emulationLoop();
+        }
+
+        // Load RetroArch script
+        const script = document.createElement('script');
+        script.src = '/netplay/snes9x_libretro.js';
+        script.onerror = () => {
+            console.error('❌ Failed to load RetroArch script');
+            document.getElementById('loading').textContent = 'Failed to load RetroArch';
+        };
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>
+

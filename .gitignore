@@ -1,0 +1,46 @@
+# Node.js
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# ROMs (large files)
+roms/
+*.nes
+*.smc
+*.sfc
+*.gb
+*.gbc
+*.gba
+*.n64
+*.z64
+
+# Backups
+*_backup/
+MOBILE_MULTIPLAYER_WORKING_BACKUP_*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Build
+dist/
+build/
+
+# Emulator data
+emulatorjs/
+Retroarch/
+
+# Test files
+test-*.html
+*.cjs
+

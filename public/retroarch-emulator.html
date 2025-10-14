@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetroArch SNES Emulator</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #222;
+            color: #eee;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            width: 512px; /* 2x SNES for better visibility */
+            height: 448px; /* 2x SNES for better visibility */
+            border: 2px solid #555;
+            background-color: #000;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 RetroArch SNES Emulator</h1>
+    <div id="game-container">
+        <canvas id="game-canvas" width="256" height="224"></canvas>
+        <div id="loading">Loading RetroArch...</div>
+    </div>
+    <div id="controls">
+        <button id="loadRomBtn">Load Street Fighter II</button>
+        <button id="startBtn" disabled>Start Game</button>
+        <button id="pauseBtn" disabled>Pause</button>
+        <button id="resetBtn" disabled>Reset</button>
+    </div>
+    <div id="status">Initializing RetroArch...</div>
+
+    <script>
+        class RetroArchEmulator {
+            constructor() {
+                this.canvas = document.getElementById('game-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.statusDiv = document.getElementById('status');
+                this.loadingDiv = document.getElementById('loading');
+                
+                this.isRunning = false;
+                this.isInitialized = false;
+                this.romData = null;
+                this.frameBuffer = new Uint32Array(256 * 224);
+                
+                // RetroArch Module
+                this.Module = null;
+                this.retroInit = null;
+                this.retroRun = null;
+                this.retroLoadGame = null;
+                this.retroUnloadGame = null;
+                this.retroReset = null;
+                
+                console.log('🎮 RetroArch Emulator initialized');
+            }
+            
+            async initialize() {
+                try {
+                    this.statusDiv.textContent = 'Loading RetroArch core...';
+                    this.loadingDiv.textContent = 'Loading snes9x core...';
+                    
+                    // Set up global Module configuration
+                    window.Module = {
+                        locateFile: (path) => {
+                            if (path.endsWith('.wasm')) {
+                                return '/netplay/snes9x_libretro.wasm';
+                            }
+                            return path;
+                        },
+                        onRuntimeInitialized: () => {
+                            console.log('✅ RetroArch core initialized');
+                            this.Module = window.Module;
+                            this.setupRetroArchCallbacks();
+                            this.isInitialized = true;
+                            this.loadingDiv.style.display = 'none';
+                            this.statusDiv.textContent = 'RetroArch ready - Load ROM to start';
+                            document.getElementById('loadRomBtn').disabled = false;
+                        },
+                        canvas: null, // Let RetroArch handle its own canvas
+                        noInitialRun: true,
+                        print: (text) => console.log('📺 RetroArch:', text),
+                        printErr: (text) => console.error('❌ RetroArch:', text),
+                        setCanvasSize: (width, height) => {
+                            console.log(`📐 Canvas size: ${width}x${height}`);
+                            this.canvas.width = width;
+                            this.canvas.height = height;
+                        }
+                    };
+                    
+                    // Load the RetroArch core
+                    const script = document.createElement('script');
+                    script.src = '/netplay/snes9x_libretro.js';
+                    
+                    script.onload = () => {
+                        console.log('📦 RetroArch script loaded');
+                    };
+                    
+                    script.onerror = () => {
+                        throw new Error('Failed to load RetroArch core');
+                    };
+                    
+                    document.head.appendChild(script);
+                    
+                } catch (error) {
+                    console.error('❌ Failed to initialize RetroArch:', error);
+                    this.statusDiv.textContent = `Error: ${error.message}`;
+                }
+            }
+            
+            setupRetroArchCallbacks() {
+                console.log('🔧 Setting up RetroArch callbacks...');
+                
+                try {
+                    // Get RetroArch functions
+                    this.retroInit = this.Module.cwrap('retro_init', null, []);
+                    this.retroRun = this.Module.cwrap('retro_run', null, []);
+                    this.retroLoadGame = this.Module.cwrap('retro_load_game', 'number', ['number']);
+                    this.retroUnloadGame = this.Module.cwrap('retro_unload_game', null, []);
+                    this.retroReset = this.Module.cwrap('retro_reset', null, []);
+                    
+                    console.log('✅ RetroArch callbacks setup complete');
+                } catch (error) {
+                    console.error('❌ Failed to setup callbacks:', error);
+                }
+            }
+            
+            async loadROM() {
+                if (!this.isInitialized) {
+                    this.statusDiv.textContent = 'RetroArch not initialized yet';
+                    return false;
+                }
+                
+                try {
+                    this.statusDiv.textContent = 'Loading Street Fighter II ROM...';
+                    this.loadingDiv.style.display = 'block';
+                    this.loadingDiv.textContent = 'Loading ROM...';
+                    
+                    // Load ROM file
+                    const response = await fetch('/roms/Street Fighter II Turbo (U).smc');
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ROM: ${response.status}`);
+                    }
+                    
+                    this.romData = await response.arrayBuffer();
+                    console.log('📁 ROM loaded:', this.romData.byteLength, 'bytes');
+                    
+                    // Initialize RetroArch core
+                    if (this.retroInit) {
+                        this.retroInit();
+                        console.log('✅ RetroArch core initialized');
+                    }
+                    
+                    // Allocate memory for ROM
+                    const romPtr = this.Module._malloc(this.romData.byteLength);
+                    this.Module.HEAPU8.set(new Uint8Array(this.romData), romPtr);
+                    
+                    // Create game info structure
+                    const gameInfoPtr = this.Module._malloc(32);
+                    this.Module.setValue(gameInfoPtr, romPtr, 'i32');      // data
+                    this.Module.setValue(gameInfoPtr + 4, this.romData.byteLength, 'i32'); // size
+                    this.Module.setValue(gameInfoPtr + 8, 0, 'i32');       // path (null)
+                    this.Module.setValue(gameInfoPtr + 12, 0, 'i32');      // meta (null)
+                    
+                    // Load game into RetroArch
+                    const success = this.retroLoadGame(gameInfoPtr);
+                    
+                    // Clean up
+                    this.Module._free(romPtr);
+                    this.Module._free(gameInfoPtr);
+                    
+                    if (success) {
+                        console.log('✅ ROM loaded into RetroArch');
+                        this.loadingDiv.style.display = 'none';
+                        this.statusDiv.textContent = 'ROM loaded - Ready to start!';
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('resetBtn').disabled = false;
+                        return true;
+                    } else {
+                        throw new Error('Failed to load ROM into RetroArch');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Failed to load ROM:', error);
+                    this.statusDiv.textContent = `Error loading ROM: ${error.message}`;
+                    this.loadingDiv.style.display = 'none';
+                    return false;
+                }
+            }
+            
+            start() {
+                if (!this.isInitialized || !this.romData) {
+                    this.statusDiv.textContent = 'Please load ROM first';
+                    return;
+                }
+                
+                this.isRunning = true;
+                this.statusDiv.textContent = 'Game running...';
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('pauseBtn').disabled = false;
+                
+                this.gameLoop();
+            }
+            
+            pause() {
+                this.isRunning = false;
+                this.statusDiv.textContent = 'Game paused';
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+            }
+            
+            reset() {
+                if (this.retroReset) {
+                    this.retroReset();
+                    console.log('🔄 Game reset');
+                }
+            }
+            
+            gameLoop() {
+                if (!this.isRunning) return;
+                
+                try {
+                    // Run one frame of RetroArch emulation
+                    if (this.retroRun) {
+                        this.retroRun();
+                    }
+                    
+                    // Continue the loop
+                    requestAnimationFrame(() => this.gameLoop());
+                    
+                } catch (error) {
+                    console.error('❌ Error in game loop:', error);
+                    this.pause();
+                }
+            }
+        }
+        
+        // Initialize emulator
+        const emulator = new RetroArchEmulator();
+        
+        // Set up event listeners
+        document.getElementById('loadRomBtn').addEventListener('click', () => {
+            emulator.loadROM();
+        });
+        
+        document.getElementById('startBtn').addEventListener('click', () => {
+            emulator.start();
+        });
+        
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            emulator.pause();
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            emulator.reset();
+        });
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            emulator.initialize();
+        });
+    </script>
+</body>
+</html>

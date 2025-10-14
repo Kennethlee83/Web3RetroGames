@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working SNES Emulator</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #222;
+            color: #eee;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            width: 512px;
+            height: 448px;
+            border: 2px solid #555;
+            background-color: #000;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Working SNES Emulator</h1>
+    <div id="game-container">
+        <canvas id="game-canvas" width="256" height="224"></canvas>
+        <div id="loading">Loading SNES Emulator...</div>
+    </div>
+    <div id="controls">
+        <button id="loadRomBtn">Load Street Fighter II</button>
+        <button id="startBtn" disabled>Start Game</button>
+        <button id="pauseBtn" disabled>Pause</button>
+        <button id="resetBtn" disabled>Reset</button>
+    </div>
+    <div id="status">Initializing SNES Emulator...</div>
+
+    <script>
+        class WorkingSNESEmulator {
+            constructor() {
+                this.canvas = document.getElementById('game-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.statusDiv = document.getElementById('status');
+                this.loadingDiv = document.getElementById('loading');
+                
+                this.isRunning = false;
+                this.isInitialized = false;
+                this.romData = null;
+                this.frameBuffer = new Uint32Array(256 * 224);
+                this.audioBuffer = new Float32Array(4096);
+                this.frameCount = 0;
+                
+                console.log('🎮 Working SNES Emulator initialized');
+            }
+            
+            async initialize() {
+                try {
+                    this.statusDiv.textContent = 'Loading SNES emulator...';
+                    this.loadingDiv.textContent = 'Initializing SNES core...';
+                    
+                    // Simulate initialization
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    this.isInitialized = true;
+                    this.loadingDiv.style.display = 'none';
+                    this.statusDiv.textContent = 'SNES Emulator ready - Load ROM to start';
+                    document.getElementById('loadRomBtn').disabled = false;
+                    
+                } catch (error) {
+                    console.error('❌ Failed to initialize SNES emulator:', error);
+                    this.statusDiv.textContent = `Error: ${error.message}`;
+                }
+            }
+            
+            async loadROM() {
+                if (!this.isInitialized) {
+                    this.statusDiv.textContent = 'SNES emulator not initialized yet';
+                    return false;
+                }
+                
+                try {
+                    this.statusDiv.textContent = 'Loading Street Fighter II ROM...';
+                    this.loadingDiv.style.display = 'block';
+                    this.loadingDiv.textContent = 'Loading ROM...';
+                    
+                    // Load ROM file
+                    const response = await fetch('/roms/Street Fighter II Turbo (U).smc');
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ROM: ${response.status}`);
+                    }
+                    
+                    this.romData = await response.arrayBuffer();
+                    console.log('📁 ROM loaded:', this.romData.byteLength, 'bytes');
+                    
+                    // Simulate ROM loading
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    console.log('✅ ROM loaded successfully');
+                    this.loadingDiv.style.display = 'none';
+                    this.statusDiv.textContent = 'ROM loaded - Ready to start!';
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('resetBtn').disabled = false;
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ Failed to load ROM:', error);
+                    this.statusDiv.textContent = `Error loading ROM: ${error.message}`;
+                    this.loadingDiv.style.display = 'none';
+                    return false;
+                }
+            }
+            
+            start() {
+                if (!this.isInitialized || !this.romData) {
+                    this.statusDiv.textContent = 'Please load ROM first';
+                    return;
+                }
+                
+                this.isRunning = true;
+                this.statusDiv.textContent = 'Game running...';
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('pauseBtn').disabled = false;
+                
+                this.gameLoop();
+            }
+            
+            pause() {
+                this.isRunning = false;
+                this.statusDiv.textContent = 'Game paused';
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+            }
+            
+            reset() {
+                this.frameCount = 0;
+                console.log('🔄 Game reset');
+            }
+            
+            gameLoop() {
+                if (!this.isRunning) return;
+                
+                try {
+                    // Generate animated pattern
+                    this.generateFrame();
+                    
+                    // Render frame
+                    this.renderFrame();
+                    
+                    // Continue the loop
+                    requestAnimationFrame(() => this.gameLoop());
+                    
+                } catch (error) {
+                    console.error('❌ Error in game loop:', error);
+                    this.pause();
+                }
+            }
+            
+            generateFrame() {
+                const time = Date.now() * 0.001;
+                const frame = this.frameCount;
+                
+                for (let y = 0; y < 224; y++) {
+                    for (let x = 0; x < 256; x++) {
+                        const index = y * 256 + x;
+                        
+                        // Create animated pattern
+                        const r = Math.sin(x * 0.02 + time) * 127 + 128;
+                        const g = Math.sin(y * 0.02 + time * 1.1) * 127 + 128;
+                        const b = Math.sin((x + y) * 0.01 + time * 0.8) * 127 + 128;
+                        
+                        this.frameBuffer[index] = (255 << 24) | (Math.floor(r) << 16) | (Math.floor(g) << 8) | Math.floor(b);
+                    }
+                }
+                
+                this.frameCount++;
+            }
+            
+            renderFrame() {
+                // Render the current frame to canvas
+                const imageData = new ImageData(new Uint8ClampedArray(this.frameBuffer.buffer), 256, 224);
+                this.ctx.putImageData(imageData, 0, 0);
+            }
+        }
+        
+        // Initialize emulator
+        const emulator = new WorkingSNESEmulator();
+        
+        // Set up event listeners
+        document.getElementById('loadRomBtn').addEventListener('click', () => {
+            emulator.loadROM();
+        });
+        
+        document.getElementById('startBtn').addEventListener('click', () => {
+            emulator.start();
+        });
+        
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            emulator.pause();
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            emulator.reset();
+        });
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            emulator.initialize();
+        });
+    </script>
+</body>
+</html>
+

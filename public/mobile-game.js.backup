@@ -1,0 +1,828 @@
+// WeAD Mobile Game - Host Interface (Clean Version)
+// This file handles both host (Player 1) and client roles in mobile multiplayer
+
+console.log('👥 Mobile Game System Starting...');
+
+// Global variables
+let socket = null;
+let currentRoom = null;
+let roomId = null;
+let playerId = null;
+let username = null;
+let isHost = false;
+let peerConnection = null;
+let dataChannel = null;
+let localStream = null;
+
+// DOM elements
+const elements = {
+    gameTitle: null,
+    connectionStatus: null,
+    loading: null,
+    gameVideo: null
+};
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ Mobile Game Interface Initialized');
+    
+    // Get DOM elements
+    elements.gameTitle = document.getElementById('game-title');
+    elements.connectionStatus = document.getElementById('connection-status');
+    elements.loading = document.getElementById('loading');
+    elements.gameVideo = document.getElementById('game-video');
+    
+    // Get URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    roomId = urlParams.get('room');
+    playerId = urlParams.get('player');
+    username = urlParams.get('username');
+    
+    console.log('🔍 URL Parameters:', { roomId, playerId, username });
+    console.log('🔍 Current URL:', window.location.href);
+    
+    if (!roomId || !playerId) {
+        showError('Missing room or player ID');
+        return;
+    }
+    
+    // Connect to server
+    connectToServer();
+});
+
+// Connect to server
+function connectToServer() {
+    console.log('🔌 Connecting to game server...');
+    updateConnectionStatus('Connecting...', 'disconnected');
+    
+    try {
+        socket = io({
+            timeout: 30000,
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 2000,
+            reconnectionDelayMax: 10000,
+            maxReconnectionAttempts: 10,
+            forceNew: true
+        });
+        
+        setupSocketHandlers();
+        
+    } catch (error) {
+        console.error('❌ Failed to connect:', error);
+        showError('Failed to connect to server: ' + error.message);
+    }
+}
+
+// Setup Socket.IO handlers
+function setupSocketHandlers() {
+    socket.on('connect', () => {
+        console.log('✅ Connected to server');
+        updateConnectionStatus('Connected', 'connected');
+        joinGameRoom();
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('❌ Disconnected from server');
+        updateConnectionStatus('Disconnected', 'disconnected');
+    });
+    
+    socket.on('error', handleError);
+    socket.on('game_room_joined', handleGameRoomJoined);
+    socket.on('game_started', handleGameStarted);
+    
+    // WebRTC handlers
+    socket.on('webrtc_offer', handleWebRTCOffer);
+    socket.on('webrtc_answer', handleWebRTCAnswer);
+    socket.on('webrtc_ice_candidate', handleWebRTCIceCandidate);
+    // Player 2 may ask Host to re-offer on demand
+    socket.on('request_offer', () => {
+        if (isHost) {
+            console.log('📨 HOST: request_offer received, creating offer');
+            createWebRTCOffer();
+        }
+    });
+}
+
+// Join game room
+function joinGameRoom() {
+    console.log('🎮 Joining game room:', roomId);
+    
+    socket.emit('join_game_room', {
+        roomId: roomId,
+        playerId: playerId,
+        username: username
+    });
+}
+
+// Handle game room joined
+function handleGameRoomJoined(data) {
+    console.log('🎮 Joined game room:', data);
+    
+    currentRoom = data.room;
+    isHost = data.isHost;
+    
+    // Update UI with proper game title
+    if (elements.gameTitle) {
+        elements.gameTitle.textContent = 'Street Fighter II Turbo';
+    }
+    
+    // Update status
+    updateConnectionStatus(isHost ? 'Host - Connected' : 'Player 2 - Connected', 'connected');
+    
+    console.log('✅ Game room joined - WebRTC setup will happen in handleGameStarted');
+}
+
+// Handle game started
+function handleGameStarted(data) {
+    console.log('🎮 Game started!', data);
+    
+    // Handle both formats: data.room (from original event) and direct room object (from rejoin)
+    const roomData = data.room || data;
+    
+    if (roomData && roomData.id) {
+        console.log('✅ Room data validation passed');
+        
+        currentRoom = roomData;
+        
+        // Double-check isHost based on room data
+        const shouldBeHost = playerId === roomData.host?.id;
+        if (isHost !== shouldBeHost) {
+            console.warn('⚠️ isHost mismatch detected! Correcting...');
+            isHost = shouldBeHost;
+        }
+        
+    if (isHost) {
+            // Host: Setup WebRTC and load emulator (like desktop setupWebRTCHost + launchEmulatorForHost)
+            console.log('🎯 HOST: Setting up WebRTC streaming for multiplayer');
+            setupWebRTCHost(roomData);
+            launchEmulatorForHost(roomData);
+    }
+        
+        hideLoading();
+    } else {
+        console.error('❌ No room data in game started event');
+        showError('Game started but no room data received');
+    }
+}
+
+// Launch EmulatorJS for Host with streaming capabilities (based on working desktop version)
+async function launchEmulatorForHost(room) {
+    console.log('🎯 HOST: Launching EmulatorJS with streaming');
+    
+    const gameContainer = document.getElementById('game');
+    if (!gameContainer) {
+        console.error('❌ HOST: Game container not found');
+        throw new Error('Game container not found');
+    }
+    
+    // Create iframe for the emulator - FIXED TO USE WORKING EJS-EMBED  
+    const iframe = document.createElement('iframe');
+    iframe.id = 'game-emulator';
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.style.backgroundColor = '#000';
+    iframe.src = '/ejs-embed.html#rom=' + encodeURIComponent('/roms/Street Fighter II Turbo (U).smc');
+    
+    gameContainer.innerHTML = '';
+    gameContainer.appendChild(iframe);
+    
+    // Wait for iframe to load
+    await new Promise(resolve => {
+        iframe.onload = () => {
+            console.log('✅ HOST: Iframe loaded successfully');
+            resolve();
+        };
+    });
+    
+    console.log('🎯 HOST: Setting up video capture...');
+    
+    // 🔥 PERFORMANCE FIX: Reduced logging and faster setup
+    const messageHandler = (event) => {
+        if (event.data && event.data.type === 'ejs-canvas-ready') {
+            console.log('✅ HOST: Canvas ready - setting up video capture');
+            setTimeout(() => setupVideoCapture(iframe), 300); // Faster setup
+        } else if (event.data && event.data.type === 'ejs-game-started') {
+            console.log('✅ HOST: Game started - setting up video capture');
+            setTimeout(() => setupVideoCapture(iframe), 300); // Faster setup
+        }
+    };
+    
+    // Add message listener
+    window.addEventListener('message', messageHandler);
+    
+    // Store reference for cleanup
+    iframe._messageHandler = messageHandler;
+    
+    // Fallback: Setup video capture after timeout if no events received
+    setTimeout(() => {
+        console.log('⏳ HOST: Fallback - setting up video capture');
+        setupVideoCapture(iframe);
+    }, 2000); // Faster fallback
+}
+
+
+// Setup video capture from emulator canvas (MOBILE OPTIMIZED)
+function setupVideoCapture(iframe) {
+    console.log('🎥 HOST: Setting up optimized video capture');
+    
+    // ✅ MOBILE OPTIMIZED VIDEO STREAMING METHOD
+    const scAddVideoFromEmulator = async () => {
+        try {
+            const outerDoc = iframe.contentDocument;
+            if (!outerDoc) return false;
+            
+            // Support both nested (webrcade-fixed -> ejs-embed) and single iframe (ejs-embed) layouts
+            let canvas = null;
+            const innerIframe = outerDoc.getElementById && outerDoc.getElementById('gameIframe');
+            if (innerIframe && innerIframe.contentDocument) {
+                const innerDoc = innerIframe.contentDocument;
+                canvas = innerDoc.querySelector('canvas');
+            } else {
+                canvas = outerDoc.querySelector('canvas');
+            }
+            
+            if (!canvas) return false;
+            
+            // 🔥 MOBILE OPTIMIZED: Lower FPS for better performance
+            const stream = canvas.captureStream(30); // Use 30 FPS for mobile performance
+            const videoTrack = stream.getVideoTracks()[0];
+            try { 
+                if (videoTrack && 'contentHint' in videoTrack) 
+                    videoTrack.contentHint = 'motion'; 
+            } catch(_) {}
+            
+            if (peerConnection) {
+                // Check if we already have a video sender (reuse existing connection)
+                const existingSenders = peerConnection.getSenders().filter(sender => 
+                    sender.track && sender.track.kind === 'video'
+                );
+                
+                if (existingSenders.length > 0) {
+                    // Replace track on existing sender (EXACT desktop method)
+                    const sender = existingSenders[0];
+                    await sender.replaceTrack(videoTrack);
+                    console.log('✅ HOST: Video track replaced using proven desktop method');
+                } else {
+                    // Add new track (EXACT desktop method)
+                    for (const track of stream.getTracks()) {
+                        peerConnection.addTrack(track, stream);
+                        console.log(`✅ HOST: Added track kind=${track.kind} readyState=${track.readyState}`);
+                    }
+                }
+                
+                localStream = stream;
+                console.log('✅ HOST: Canvas stream attached using proven desktop method');
+                
+                // 🔥 PERFORMANCE FIX: Create offer immediately without delay
+                try {
+                    console.log('🎯 HOST: Creating WebRTC offer immediately');
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    
+                    // Send offer via Socket.IO
+                    socket.emit('webrtc_offer', {
+                        type: 'webrtc_offer',
+                        roomCode: roomId,
+                        offer: peerConnection.localDescription,
+                        fromUserId: playerId
+                    });
+                    
+                    console.log('✅ HOST: WebRTC offer created and sent');
+                } catch (error) {
+                    console.error('❌ HOST: Failed to create WebRTC offer:', error);
+                }
+                
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('❌ HOST: Error in scAddVideoFromEmulator:', error);
+            return false;
+        }
+    };
+    
+    // Wait for canvas with optimized retry logic
+    const waitForCanvas = async () => {
+        console.log('⏳ HOST: Waiting for canvas...');
+        
+        // Optimized retry logic for mobile performance
+        for (let i = 0; i < 10; i++) { // Reduced retries
+            if (await scAddVideoFromEmulator()) {
+                console.log('✅ HOST: Canvas attached successfully');
+                return;
+            }
+            await new Promise(r => setTimeout(r, 200)); // Faster retry
+        }
+        
+        console.error('❌ HOST: Failed to attach canvas after retries');
+    };
+    
+    // Start waiting for canvas
+    waitForCanvas();
+}
+
+// Handle Player 2 input (called from WebRTC data channel)
+function handlePlayer2Input(input) {
+    console.log('🎮 HOST: Received Player 2 input:', input);
+    // This function will be implemented to forward Player 2 input to the emulator
+    // For now, just log it
+}
+
+// Setup stream receiver for Player 2
+
+// Setup WebRTC connection for Host (EXACT COPY FROM WORKING DESKTOP)
+async function setupWebRTCHost(room) {
+    console.log('🎯 HOST: Setting up WebRTC streaming using PROVEN desktop method');
+    
+    // Create RTCPeerConnection with mobile-optimized constraints (EXACT desktop method)
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    const pcConfig = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ],
+        // 🔥 MOBILE PERFORMANCE: Optimize for low-latency streaming
+        iceCandidatePoolSize: 4, // Reduced for faster connection
+        bundlePolicy: 'max-bundle', // Bundle all media for efficiency
+        rtcpMuxPolicy: 'require', // Required for mobile compatibility
+        iceTransportPolicy: 'all', // Allow all ICE candidates
+        sdpSemantics: 'unified-plan' // Modern SDP handling
+    };
+    
+    // Add mobile-specific optimizations (EXACT desktop method)
+    if (isMobile) {
+        console.log('📱 HOST: Mobile device detected, applying mobile optimizations');
+    }
+    
+    peerConnection = new RTCPeerConnection(pcConfig);
+    
+    // Create data channel for sending game state and inputs (EXACT desktop method)
+    dataChannel = peerConnection.createDataChannel('gameSync', { ordered: true });
+    
+    // 🔥 FIX: Create input synchronization channel for Player 2 controls (EXACT desktop method)
+    inputChannel = peerConnection.createDataChannel('inputSync', { ordered: true });
+    
+    // 🔥 FIX: Add video transceiver for proper WebRTC video streaming (EXACT desktop method)
+    try {
+        const videoTransceiver = peerConnection.addTransceiver('video', { direction: 'sendonly' });
+        console.log('✅ HOST: Video transceiver added for WebRTC streaming');
+        
+        // Prefer H.264 for mobile compatibility (EXACT desktop method)
+        if (videoTransceiver && videoTransceiver.setCodecPreferences) {
+            const capabilities = RTCRtpSender.getCapabilities('video');
+            if (capabilities && capabilities.codecs) {
+                const h264Codec = capabilities.codecs.find(codec => 
+                    codec.mimeType.toLowerCase() === 'video/h264'
+                );
+                if (h264Codec) {
+                    videoTransceiver.setCodecPreferences([h264Codec]);
+                    console.log('✅ HOST: Set H.264 codec preference for mobile compatibility');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ HOST: Failed to add video transceiver:', error);
+    }
+    
+    // Data channel handlers (EXACT desktop method)
+    dataChannel.onopen = function() {
+        console.log('✅ HOST: Data channel opened - ready for streaming');
+        
+        // Send a test message to verify connection (EXACT desktop method)
+        try {
+            dataChannel.send(JSON.stringify({
+                type: 'connection_test',
+                message: 'Host data channel is working!',
+                timestamp: Date.now()
+            }));
+            console.log('📤 HOST: Test message sent to Player 2');
+        } catch (error) {
+            console.error('❌ HOST: Error sending test message:', error);
+        }
+    };
+    
+    // 🔥 FIX: Set up input channel handlers for Player 2 controls (EXACT desktop method)
+    inputChannel.onopen = function() {
+        console.log('✅ HOST: Input sync channel opened - Player 2 controls ready!');
+        console.log('🎮 Host input channel ready to receive Player 2 inputs!');
+    };
+    
+    inputChannel.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('🎮 HOST: Received Player 2 input:', data);
+            
+            // Process Player 2 input in the emulator (EXACT desktop method)
+            if (data.type === 'player2_input') {
+                handlePlayer2Input(data);
+            }
+        } catch (e) {
+            console.error('❌ HOST: Input channel message error:', e);
+        }
+    };
+    
+    inputChannel.onerror = function(error) {
+        console.error('❌ HOST: Input channel error:', error);
+    };
+    
+    dataChannel.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        console.log('📡 HOST: Received data via WebRTC:', data.type, data.message || '');
+        
+        if (data.type === 'connection_ack') {
+            console.log('✅ HOST: Connection acknowledged by Player 2:', data.message);
+            // Now start the game streaming (EXACT desktop method)
+            setTimeout(() => {
+                startGameStreaming();
+            }, 3000); // Wait 3 seconds for game to load
+        } else if (data.type === 'player2_input') {
+            handlePlayer2Input(data);
+        }
+    };
+    
+    // Handle ICE candidates (EXACT desktop method)
+    peerConnection.onicecandidate = function(event) {
+        if (event.candidate) {
+            socket.emit('webrtc_ice_candidate', {
+                type: 'webrtc_ice_candidate',
+                roomCode: roomId,
+                candidate: event.candidate,
+                isHost: true,
+                fromUserId: playerId
+            });
+        }
+    };
+    
+    // Add connection state monitoring (EXACT desktop method)
+    peerConnection.onconnectionstatechange = function() {
+        console.log('🔗 HOST: WebRTC connection state changed to:', peerConnection.connectionState);
+    };
+    
+    peerConnection.oniceconnectionstatechange = function() {
+        console.log('🧊 HOST: WebRTC ICE connection state changed to:', peerConnection.iceConnectionState);
+    };
+    
+    console.log('✅ HOST: WebRTC streaming setup complete using proven desktop method');
+}
+
+// Start streaming game data to Player 2 with proper WebRTC video streaming (EXACT desktop method)
+function startGameStreaming() {
+    console.log('📡 HOST: Starting WebRTC video streaming to Player 2');
+    
+    // Wait for data channel to be ready (EXACT desktop method)
+    const waitForDataChannel = () => {
+        if (dataChannel && dataChannel.readyState === 'open') {
+            console.log('✅ HOST: Data channel ready, setting up video streaming');
+            setupVideoStreaming();
+        } else {
+            console.log('⏳ HOST: Waiting for data channel to open...');
+            setTimeout(waitForDataChannel, 100);
+        }
+    };
+    
+    // Setup proper WebRTC video streaming (EXACT desktop method)
+    const setupVideoStreaming = () => {
+        console.log('🎥 HOST: Setting up WebRTC video streaming from game canvas');
+        console.log('🔍 HOST: Debug - peerConnection exists:', !!peerConnection);
+        console.log('🔍 HOST: Debug - dataChannel state:', dataChannel?.readyState);
+        
+        // Wait for game canvas to be available (EXACT desktop method)
+        const waitForCanvas = () => {
+            const iframe = document.getElementById('game-emulator');
+            if (iframe && iframe.contentWindow && iframe.contentWindow.document) {
+                const canvas = iframe.contentWindow.document.querySelector('canvas');
+                if (canvas && canvas.width > 0 && canvas.height > 0) {
+                    console.log('✅ HOST: Game canvas found, creating video stream');
+                    createVideoStream();
+                } else {
+                    console.log('⏳ HOST: Waiting for game canvas to load...');
+                    setTimeout(waitForCanvas, 500);
+                }
+            } else {
+                console.log('⏳ HOST: Waiting for iframe to load...');
+                setTimeout(waitForCanvas, 500);
+            }
+        };
+        
+        const createVideoStream = async () => {
+            try {
+                console.log('✅ HOST: Using proven video capture method');
+                
+                // Use the proven working method from scAddVideoFromEmulator (EXACT desktop method)
+                const iframe = document.getElementById('game-emulator');
+                if (!iframe) {
+                    console.log('⏳ HOST: Waiting for game-emulator iframe...');
+                    setTimeout(createVideoStream, 500);
+                    return;
+                }
+                
+                const outerDoc = iframe.contentDocument;
+                if (!outerDoc) {
+                    console.log('⏳ HOST: Waiting for iframe document...');
+                    setTimeout(createVideoStream, 500);
+                    return;
+                }
+                
+                // Support both nested (webrcade-fixed -> ejs-embed) and single iframe (ejs-embed) layouts (EXACT desktop method)
+                let canvas = null;
+                const innerIframe = outerDoc.getElementById && outerDoc.getElementById('gameIframe');
+                if (innerIframe && innerIframe.contentDocument) {
+                    const innerDoc = innerIframe.contentDocument;
+                    canvas = innerDoc.querySelector('canvas');
+                } else {
+                    canvas = outerDoc.querySelector('canvas');
+                }
+                
+                if (!canvas) {
+                    console.log('⏳ HOST: Waiting for game canvas...');
+                    setTimeout(createVideoStream, 500);
+                    return;
+                }
+                
+                console.log('✅ HOST: Canvas found, using proven streaming method');
+                console.log('🔍 HOST: Debug - canvas dimensions:', canvas.width, 'x', canvas.height);
+                
+                // 🔥 MOBILE OPTIMIZED: Use 30 FPS for better performance
+                const stream = canvas.captureStream(30);
+                const videoTrack = stream.getVideoTracks()[0];
+                console.log('🔍 HOST: Debug - video track:', videoTrack?.kind, videoTrack?.readyState);
+                
+                if (videoTrack) {
+                    // Set content hint for better video quality (EXACT desktop method)
+                    try { 
+                        if ('contentHint' in videoTrack) videoTrack.contentHint = 'motion'; 
+                    } catch(_) {}
+                    
+                    // Use the proven sender replacement method (EXACT desktop method)
+                    const senders = peerConnection.getSenders();
+                    const videoSender = senders.find(sender => 
+                        sender.track && sender.track.kind === 'video'
+                    );
+                    
+                    if (videoSender && videoTrack) {
+                        await videoSender.replaceTrack(videoTrack);
+                        console.log('✅ HOST: Video track replaced using proven desktop method');
+                        console.log(`🔍 HOST: replaceTrack applied kind=video readyState=${videoTrack.readyState}`);
+                    } else {
+                        // Fallback: add track directly (EXACT desktop method)
+                        for (const track of stream.getTracks()) {
+                            peerConnection.addTrack(track, stream);
+                            console.log(`✅ HOST: Added track kind=${track.kind} readyState=${track.readyState}`);
+                        }
+                    }
+                    
+                    console.log('🎥 HOST: Proven canvas streaming method applied!');
+                } else {
+                    console.error('❌ HOST: No video tracks found in canvas stream');
+                }
+            } catch (error) {
+                console.error('❌ HOST: Failed to create video stream:', error);
+            }
+        };
+        
+        waitForCanvas();
+    };
+    
+    waitForDataChannel();
+}
+
+
+
+// Setup data channel handlers
+function setupDataChannelHandlers() {
+    if (!dataChannel) return;
+    
+    dataChannel.onopen = function() {
+        console.log('📡 Data channel opened');
+    };
+    
+    dataChannel.onclose = function() {
+        console.log('📡 Data channel closed');
+    };
+    
+    dataChannel.onerror = function(error) {
+        console.error('📡 Data channel error:', error);
+    };
+    
+    if (isHost) {
+        // Host: Handle incoming Player 2 controls
+        dataChannel.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'player2_input') {
+                    handlePlayer2Input(data.input);
+                }
+            } catch (error) {
+                console.error('❌ Failed to parse data channel message:', error);
+            }
+        };
+    }
+}
+
+// Handle Player 2 input (Host side) - EXACT desktop mapping
+function handlePlayer2Input(input) {
+    console.log(`🎮 HOST: Received Player 2 input: ${input.action} ${input.pressed ? 'PRESSED' : 'RELEASED'}`);
+    
+    // Map mobile actions to EmulatorJS simulateInput (EXACT desktop mapping)
+    const actionMap = {
+        'up': { player: 1, index: 4 },      // Player 2 Up (T key)
+        'down': { player: 1, index: 5 },    // Player 2 Down (G key)
+        'left': { player: 1, index: 6 },    // Player 2 Left (F key)
+        'right': { player: 1, index: 7 },   // Player 2 Right (H key)
+        'punch_light': { player: 1, index: 9 },   // Player 2 Light Punch (Numpad 7)
+        'punch_medium': { player: 1, index: 1 },  // Player 2 Medium Punch (Numpad 8)
+        'kick_light': { player: 1, index: 0 },    // Player 2 Light Kick (Numpad 4)
+        'kick_medium': { player: 1, index: 8 },   // Player 2 Medium Kick (Numpad 5)
+        'start': { player: 1, index: 3 },          // Start button (Numpad Enter)
+        'select': { player: 1, index: 2 }          // Select button (Numpad +)
+    };
+    
+    const mapping = actionMap[input.action];
+    if (!mapping) {
+        console.warn(`⚠️ HOST: Unknown Player 2 action: ${input.action}`);
+        return;
+    }
+    
+    // Forward to emulator iframe using the exact desktop method
+    const iframe = document.getElementById('game-emulator');
+    console.log('🔍 HOST: Looking for iframe:', iframe ? 'FOUND' : 'NOT FOUND');
+    
+    if (iframe && iframe.contentWindow) {
+        console.log('🔍 HOST: Iframe contentWindow accessible:', !!iframe.contentWindow);
+        
+        try {
+            // Try direct emulator access first (desktop method)
+            const emulator = iframe.contentWindow.EJS_emulator;
+            console.log('🔍 HOST: EmulatorJS object:', emulator ? 'FOUND' : 'NOT FOUND');
+            
+            if (emulator && emulator.gameManager) {
+                const value = input.pressed ? 1 : 0;
+                emulator.gameManager.simulateInput(mapping.player, mapping.index, value);
+                console.log(`✅ HOST: Direct simulateInput: P${mapping.player + 1} idx${mapping.index} = ${value} (${input.action})`);
+                return;
+            }
+            
+            console.log('🔍 HOST: Trying postMessage fallback...');
+            
+            // Fallback: send postMessage to iframe (mobile method)
+            iframe.contentWindow.postMessage({
+                type: 'player2_input',
+                control: input.action,
+                pressed: input.pressed
+            }, '*');
+            console.log(`✅ HOST: PostMessage sent: P${mapping.player + 1} idx${mapping.index} = ${input.pressed ? 1 : 0} (${input.action})`);
+            
+        } catch (error) {
+            console.error(`❌ HOST: Failed to send Player 2 input (${input.action}):`, error);
+        }
+    } else {
+        console.warn('⚠️ HOST: No emulator iframe found for Player 2 input');
+        console.log('🔍 HOST: Available iframes:', document.querySelectorAll('iframe'));
+    }
+}
+
+// Create WebRTC offer function - for when Player 2 requests a new offer
+async function createWebRTCOffer() {
+    console.log('📤 HOST: Creating WebRTC offer on request');
+    
+    if (!peerConnection) {
+        console.error('❌ HOST: No peer connection available for offer creation');
+        return;
+    }
+    
+    try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        // Send offer via Socket.IO
+        socket.emit('webrtc_offer', {
+            type: 'webrtc_offer',
+            roomCode: roomId,
+            offer: peerConnection.localDescription,
+            fromUserId: playerId
+        });
+        
+        console.log('✅ HOST: WebRTC offer created and sent on request');
+    } catch (error) {
+        console.error('❌ HOST: Failed to create WebRTC offer on request:', error);
+    }
+}
+
+// Handle WebRTC offer (Host) - for when Player 2 sends offers (shouldn't happen but kept for compatibility)
+async function handleWebRTCOffer(data) {
+    console.log('📨 HOST: Received WebRTC offer (unexpected - Host should be sending offers)');
+    // Host typically sends offers, not receives them
+    // This is kept for compatibility but shouldn't be used
+}
+
+// Handle WebRTC answer (Host)
+async function handleWebRTCAnswer(data) {
+    console.log('📨 HOST: Received WebRTC answer');
+    
+    if (!isHost || data.isHost || !data.answer) {
+        return;
+    }
+    
+    try {
+        await peerConnection.setRemoteDescription(data.answer);
+        console.log('✅ HOST: WebRTC connection established');
+        
+    } catch (error) {
+        console.error('❌ HOST: Failed to handle WebRTC answer:', error);
+    }
+}
+
+// Handle WebRTC ICE candidate
+async function handleWebRTCIceCandidate(data) {
+    if (!data.candidate) return;
+    
+    // Only process candidates from the other peer
+    if ((isHost && data.isHost) || (!isHost && !data.isHost)) return;
+    
+    try {
+        console.log('🧊 Received ICE candidate from', isHost ? 'Player 2' : 'Host');
+        await peerConnection.addIceCandidate(data.candidate);
+        console.log('✅ ICE candidate added');
+        
+    } catch (error) {
+        console.error('❌ Failed to add ICE candidate:', error);
+    }
+}
+
+// Update connection status
+function updateConnectionStatus(text, type) {
+    if (elements.connectionStatus) {
+        elements.connectionStatus.textContent = text;
+        elements.connectionStatus.className = `connection-status ${type}`;
+    }
+}
+
+// Show/hide loading
+function showLoading(text = 'Loading...') {
+    if (elements.loading) {
+        elements.loading.style.display = 'block';
+        elements.loading.querySelector('div:last-child').textContent = text;
+    }
+}
+
+function hideLoading() {
+    if (elements.loading) {
+        elements.loading.style.display = 'none';
+        console.log('🔄 Loading hidden');
+    }
+}
+
+// Show error with retry option
+function showError(message) {
+    console.error('❌ Error:', message);
+    
+    let errorDisplay = document.getElementById('error-display');
+    if (!errorDisplay) {
+        errorDisplay = document.createElement('div');
+        errorDisplay.id = 'error-display';
+        errorDisplay.className = 'error-display';
+        document.body.appendChild(errorDisplay);
+    }
+    
+    errorDisplay.innerHTML = `
+        <strong>Error:</strong> ${message}
+        <br>
+        <button class="retry-btn" onclick="retryConnection()">Retry Connection</button>
+    `;
+}
+
+// Handle error events
+function handleError(error) {
+    console.error('🚨 Server error:', error);
+    showError(error.message || 'Unknown server error');
+}
+
+// Retry connection
+function retryConnection() {
+    console.log('🔄 Retrying connection...');
+    
+    // Remove error display
+    const errorDisplay = document.getElementById('error-display');
+    if (errorDisplay) {
+        errorDisplay.remove();
+    }
+    
+    // Show loading
+    showLoading('Reconnecting...');
+    
+    // Reconnect
+    if (socket) {
+        socket.disconnect();
+    }
+    
+    setTimeout(() => {
+        connectToServer();
+    }, 1000);
+}
+
+console.log('✅ Mobile Game System Loaded');
+

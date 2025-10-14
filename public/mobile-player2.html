@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>WeAD Mobile Player 2</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #ffffff;
+            font-size: 12px;
+            line-height: 1.4;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            text-align: center;
+            border-bottom: 2px solid #ff6b6b;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-title {
+            font-size: 14px;
+            color: #ff6b6b;
+            margin-bottom: 5px;
+        }
+
+        .connection-status {
+            font-size: 10px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            display: inline-block;
+        }
+
+        .connection-status.connected {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+            border: 1px solid #f44336;
+        }
+
+        /* Game Container */
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: calc(100vh - 120px);
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #stream-container {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            position: relative;
+        }
+
+        #game-video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+        }
+
+        /* Loading */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ff6b6b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Error Display */
+        .error-display {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(244, 67, 54, 0.95);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            z-index: 1001;
+            font-size: 11px;
+            line-height: 1.3;
+        }
+
+        .retry-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+
+        .retry-btn:active {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Touch Controls for Player 2 */
+        .touch-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            color: #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.1s ease;
+            touch-action: manipulation;
+        }
+
+        .control-btn:active {
+            background: rgba(76, 175, 80, 0.3);
+            transform: scale(0.95);
+        }
+
+        .control-btn.dpad {
+            border-radius: 8px;
+        }
+
+        .dpad-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 2px;
+            width: 80px;
+            height: 80px;
+        }
+
+        .dpad-up { grid-column: 2; grid-row: 1; }
+        .dpad-down { grid-column: 2; grid-row: 3; }
+        .dpad-left { grid-column: 1; grid-row: 2; }
+        .dpad-right { grid-column: 3; grid-row: 2; }
+
+        /* Touch Controls Styles */
+        .touch-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 20px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        
+        .touch-controls > * {
+            pointer-events: auto;
+        }
+        
+        /* D-Pad */
+        .dpad {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 5px;
+            width: 120px;
+            height: 120px;
+        }
+        
+        .dpad-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .dpad-btn:active {
+            background: rgba(255,255,255,0.4);
+            transform: scale(0.95);
+        }
+        
+        .dpad-center {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 140px;
+        }
+        
+        .action-btn {
+            background: rgba(255,100,100,0.3);
+            border: 2px solid rgba(255,100,100,0.5);
+            border-radius: 50%;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 15px;
+            transition: all 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .action-btn:active {
+            background: rgba(255,100,100,0.5);
+            transform: scale(0.95);
+        }
+        
+        .punch-light, .punch-medium {
+            background: rgba(255,150,100,0.3);
+            border-color: rgba(255,150,100,0.5);
+        }
+        
+        .punch-light:active, .punch-medium:active {
+            background: rgba(255,150,100,0.5);
+        }
+        
+        .kick-light, .kick-medium {
+            background: rgba(100,255,100,0.3);
+            border-color: rgba(100,255,100,0.5);
+        }
+        
+        .kick-light:active, .kick-medium:active {
+            background: rgba(100,255,100,0.5);
+        }
+        
+        /* System Buttons */
+        .system-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .system-btn {
+            background: rgba(100,100,255,0.3);
+            border: 2px solid rgba(100,100,255,0.5);
+            border-radius: 20px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 8px 16px;
+            transition: all 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .system-btn:active {
+            background: rgba(100,100,255,0.5);
+            transform: scale(0.95);
+        }
+        
+        /* Hide controls on desktop */
+        @media (min-width: 768px) {
+            .touch-controls {
+                display: none;
+            }
+        }
+
+        /* Player 2 indicator */
+        .player-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(76, 175, 80, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 10px;
+            z-index: 100;
+        }
+        
+        /* Enhanced mobile fullscreen styling (from working single player) */
+        @media (max-width: 768px) {
+            /* Hide header and other elements when in fullscreen */
+            body.mobile-fullscreen header,
+            body.mobile-fullscreen .section:not(.game-container),
+            body.mobile-fullscreen footer,
+            body.mobile-fullscreen .telegram-buttons-container,
+            body.mobile-fullscreen .discord-buttons-container {
+                display: none !important;
+            }
+
+            /* Make game container fill entire screen in fullscreen */
+            body.mobile-fullscreen .game-container {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                z-index: 1001 !important;
+                background: #000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+
+            /* Optimize EmulatorJS canvas for fullscreen mobile */
+            body.mobile-fullscreen #game {
+                width: 100% !important;
+                height: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: #000 !important;
+            }
+
+            body.mobile-fullscreen .ejs_canvas_container {
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            body.mobile-fullscreen canvas {
+                max-width: 100vw !important;
+                max-height: 80vh !important; /* Consistent with landscape rule */
+                width: auto !important;
+                height: auto !important;
+                object-fit: contain !important;
+                background: #000 !important;
+                transition: all 0.3s ease !important; /* Smooth resizing */
+            }
+
+            /* Ensure virtual gamepad is positioned correctly in fullscreen */
+            body.mobile-fullscreen .ejs_virtualGamepad_parent {
+                position: fixed !important;
+                z-index: 1004 !important;
+                bottom: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="game-title" id="game-title">Street Fighter II Turbo</div>
+        <div class="connection-status disconnected" id="connection-status">
+            Connecting...
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div class="game-container">
+        <div id="loading">
+            <div class="loading-spinner"></div>
+            <div>Connecting to game...</div>
+        </div>
+        
+        <!-- Stream Container for Player 1's game -->
+        <div id="stream-container">
+            <video id="game-video" autoplay muted style="display: none;"></video>
+            <div class="player-indicator">Player 2</div>
+        </div>
+        
+        <!-- Game container for netplay -->
+        <div id="game"></div>
+    </div>
+
+    <!-- Touch Controls for Player 2 -->
+    <div class="touch-controls">
+        <!-- D-Pad (Left side) -->
+        <div class="dpad">
+            <button class="dpad-btn dpad-up" data-action="up">↑</button>
+            <button class="dpad-btn dpad-left" data-action="left">←</button>
+            <button class="dpad-btn dpad-center">○</button>
+            <button class="dpad-btn dpad-right" data-action="right">→</button>
+            <button class="dpad-btn dpad-down" data-action="down">↓</button>
+        </div>
+        
+        <!-- Action Buttons (Right side) -->
+        <div class="action-buttons">
+            <button class="action-btn punch-light" data-action="punch_light">LP</button>
+            <button class="action-btn punch-medium" data-action="punch_medium">MP</button>
+            <button class="action-btn kick-light" data-action="kick_light">LK</button>
+            <button class="action-btn kick-medium" data-action="kick_medium">MK</button>
+        </div>
+        
+        <!-- System Buttons -->
+        <div class="system-buttons">
+            <button class="system-btn start-btn" data-action="start">START</button>
+            <button class="system-btn select-btn" data-action="select">SELECT</button>
+        </div>
+    </div>
+    
+    <!-- Virtual Controller for Netplay -->
+    <div id="player2Gamepad"></div>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/mobile-player2.js"></script>
+</body>
+</html>

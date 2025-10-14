@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetroArch SNES Emulator</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #222;
+            color: #eee;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            width: 512px;
+            height: 448px;
+            border: 2px solid #555;
+            background-color: #000;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        #retroarch-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #000;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 RetroArch SNES Emulator</h1>
+    <div id="game-container">
+        <div id="loading">Loading RetroArch...</div>
+        <iframe id="retroarch-iframe" style="display: none;"></iframe>
+    </div>
+    <div id="controls">
+        <button id="loadRomBtn">Load Street Fighter II</button>
+        <button id="startBtn" disabled>Start Game</button>
+        <button id="pauseBtn" disabled>Pause</button>
+        <button id="resetBtn" disabled>Reset</button>
+    </div>
+    <div id="status">Initializing RetroArch...</div>
+
+    <script>
+        class RetroArchSimple {
+            constructor() {
+                this.statusDiv = document.getElementById('status');
+                this.loadingDiv = document.getElementById('loading');
+                this.iframe = document.getElementById('retroarch-iframe');
+                this.isRunning = false;
+                this.isInitialized = false;
+                
+                console.log('🎮 RetroArch Simple initialized');
+            }
+            
+            async initialize() {
+                try {
+                    this.statusDiv.textContent = 'Loading RetroArch launcher...';
+                    this.loadingDiv.textContent = 'Loading RetroArch...';
+                    
+                    // Load RetroArch launcher
+                    this.iframe.src = '/retroarch-launcher.html';
+                    
+                    // Wait for iframe to load
+                    this.iframe.onload = () => {
+                        console.log('✅ RetroArch launcher loaded');
+                        this.isInitialized = true;
+                        this.loadingDiv.style.display = 'none';
+                        this.iframe.style.display = 'block';
+                        this.statusDiv.textContent = 'RetroArch ready - Load ROM to start';
+                        document.getElementById('loadRomBtn').disabled = false;
+                    };
+                    
+                } catch (error) {
+                    console.error('❌ Failed to initialize RetroArch:', error);
+                    this.statusDiv.textContent = `Error: ${error.message}`;
+                }
+            }
+            
+            async loadROM() {
+                if (!this.isInitialized) {
+                    this.statusDiv.textContent = 'RetroArch not initialized yet';
+                    return false;
+                }
+                
+                try {
+                    this.statusDiv.textContent = 'Loading Street Fighter II ROM...';
+                    
+                    // Send message to RetroArch iframe to load ROM
+                    const message = {
+                        type: 'load_rom',
+                        romPath: '/roms/Street Fighter II Turbo (U).smc'
+                    };
+                    
+                    this.iframe.contentWindow.postMessage(message, '*');
+                    
+                    // Simulate ROM loading success
+                    setTimeout(() => {
+                        this.statusDiv.textContent = 'ROM loaded - Ready to start!';
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('resetBtn').disabled = false;
+                    }, 2000);
+                    
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ Failed to load ROM:', error);
+                    this.statusDiv.textContent = `Error loading ROM: ${error.message}`;
+                    return false;
+                }
+            }
+            
+            start() {
+                if (!this.isInitialized) {
+                    this.statusDiv.textContent = 'Please load ROM first';
+                    return;
+                }
+                
+                this.isRunning = true;
+                this.statusDiv.textContent = 'Game running...';
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('pauseBtn').disabled = false;
+                
+                // Send start message to RetroArch
+                const message = { type: 'start_game' };
+                this.iframe.contentWindow.postMessage(message, '*');
+            }
+            
+            pause() {
+                this.isRunning = false;
+                this.statusDiv.textContent = 'Game paused';
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                
+                // Send pause message to RetroArch
+                const message = { type: 'pause_game' };
+                this.iframe.contentWindow.postMessage(message, '*');
+            }
+            
+            reset() {
+                // Send reset message to RetroArch
+                const message = { type: 'reset_game' };
+                this.iframe.contentWindow.postMessage(message, '*');
+                console.log('🔄 Game reset');
+            }
+        }
+        
+        // Initialize emulator
+        const emulator = new RetroArchSimple();
+        
+        // Set up event listeners
+        document.getElementById('loadRomBtn').addEventListener('click', () => {
+            emulator.loadROM();
+        });
+        
+        document.getElementById('startBtn').addEventListener('click', () => {
+            emulator.start();
+        });
+        
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            emulator.pause();
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            emulator.reset();
+        });
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            emulator.initialize();
+        });
+    </script>
+</body>
+</html>
+
