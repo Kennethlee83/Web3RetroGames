@@ -140,7 +140,7 @@ For commercial licensing inquiries: licensing@ www.wead.info
 ## 📞 Contact
 
 - **Website**: [weadretrogameplatform.com](https://weadretrogameplatform.com)
-- **Email**: info@wead.io
+- **Email**: radiojack31@gmail.com
 
 ---
 
