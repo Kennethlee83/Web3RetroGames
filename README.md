@@ -135,7 +135,7 @@ This project is **proprietary and confidential**.
 
 **All Rights Reserved** - Unauthorized use, copying, modification, or distribution is strictly prohibited.
 
-For commercial licensing inquiries: licensing@wead.io
+For commercial licensing inquiries: licensing@ www.wead.info
 
 ## 📞 Contact
 
